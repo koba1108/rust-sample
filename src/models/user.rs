@@ -11,13 +11,13 @@ pub struct User {
     #[validate(length(min = 1, max = 100))]
     pub name: String,
     #[validate(custom(function = "validate_birthday"))]
-    pub birthday: NaiveDate,
+    pub birthday: Option<NaiveDate>,
     pub created_at: chrono::DateTime<Utc>,
     pub updated_at: chrono::DateTime<Utc>,
 }
 
 impl User {
-    pub fn new(name: &str, birthday: NaiveDate) -> Result<Self, String> {
+    pub fn new(name: &str, birthday: Option<NaiveDate>) -> Result<Self, String> {
         let user = User {
             id: Ulid::new(),
             name: name.to_string(),
@@ -25,22 +25,23 @@ impl User {
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };
+        user.validate().map_err(|e| e.to_string())?;
         Ok(user)
     }
 
-    pub fn age(&self) -> i32 {
-        calc_age(&self.birthday)
+    pub fn age(&self) -> Option<i32> {
+        self.birthday.map(|birthday| calc_age(&birthday))
     }
 }
 
-fn validate_birthday(birthday: &NaiveDate) -> Result<(), ValidationError> {
+fn validate_birthday(birthday: &&NaiveDate) -> Result<(), ValidationError> {
     // is before today
-    if birthday > &Utc::now().naive_utc().date() {
-        return Err(ValidationError::new("birthday is must be before today"));
+    if *birthday > &Utc::now().naive_utc().date() {
+        return Err(ValidationError::new("birthday must be before today"));
     }
     // is adult
-    if calc_age(&birthday) < 20 {
-        return Err(ValidationError::new("user must be adult"));
+    if calc_age(*birthday) < 20 {
+        return Err(ValidationError::new("user must be an adult"));
     }
     Ok(())
 }
